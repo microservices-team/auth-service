@@ -1,47 +1,35 @@
-server:
-  port: 8081
-
 spring:
   application:
     name: auth-service
   config:
     import: optional:configserver:http://${CONFIG_USER:configuser}:${CONFIG_PASS:configpass}@${CONFIG_HOST:localhost}:8888
+  # Local fallback only — real config comes from config-server
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/diegoanyosa_db?currentSchema=auth}
     username: ${DB_USER:dauser}
     password: ${DB_PASS:dapassword}
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: false
-    properties:
-      hibernate:
-        default_schema: auth
-        format_sql: true
-  flyway:
-    enabled: true
-    schemas: auth
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
-  instance:
-    prefer-ip-address: true
-
-jwt:
-  secret: ${JWT_SECRET:change-me-in-production-minimum-32-chars-long!}
-  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
-  refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
-
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.client.servlet.OAuth2ClientAutoConfiguration
 management:
   endpoints:
     web:
       exposure:
         include: health,info
-  endpoint:
-    health:
-      show-details: always
+
+# ConfigurationProperties binding
+security:
+  account:
+    max-failed-attempts: 3
+    lockout-duration-minutes: 30
+  remember-me:
+    key: ${REMEMBER_ME_KEY:da-remember-me-key}
+    token-validity-seconds: 604800
+  api-key:
+    header-name: X-API-Key
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  oauth2:
+    success-redirect: ${FRONTEND_URL:http://localhost:5173}/oauth2/callback
+    failure-redirect: ${FRONTEND_URL:http://localhost:5173}/login?error=oauth2
