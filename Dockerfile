@@ -3,15 +3,11 @@ FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
-# Install Maven and build
 RUN apk add --no-cache maven && mvn package -DskipTests -q
 
 # ── Stage 2: Runtime ──────────────────────────────────────────
 FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
-# Install curl
-RUN apk add --no-cache curl
-# Non-root user for security
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 COPY --from=builder /app/target/*.jar app.jar

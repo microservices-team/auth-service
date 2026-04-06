@@ -9,21 +9,22 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "security")
 public class AppProperties {
 
-    private Account account = new Account();
+    private Account  account    = new Account();
     private RememberMe rememberMe = new RememberMe();
-    private ApiKey apiKey = new ApiKey();
-    private App app = new App();
+    private ApiKey   apiKey     = new ApiKey();
+    private App      app        = new App();
+    private OAuth2   oauth2     = new OAuth2();
 
     @Data
     public static class Account {
-        private int maxFailedAttempts = 3;
+        private int maxFailedAttempts     = 3;
         private int lockoutDurationMinutes = 30;
     }
 
     @Data
     public static class RememberMe {
-        private String key = "da-remember-me-secret";
-        private int tokenValiditySeconds = 604800;
+        private String key                  = "da-remember-me-secret";
+        private int    tokenValiditySeconds = 604800;
     }
 
     @Data
@@ -33,13 +34,23 @@ public class AppProperties {
 
     @Data
     public static class App {
-        private String frontendUrl = "http://localhost:5173";
-        private OAuth2 oauth2 = new OAuth2();
+        private String  frontendUrl = "http://localhost:5173";
+        private OAuth2Config oauth2 = new OAuth2Config();
 
         @Data
-        public static class OAuth2 {
+        public static class OAuth2Config {
             private String successRedirect = "http://localhost:5173/oauth2/callback";
             private String failureRedirect = "http://localhost:5173/login?error=oauth2";
         }
+    }
+
+    /**
+     * Feature flags for OAuth2.
+     * Disable temporarily with: security.oauth2.enabled=false in config YAML.
+     * When disabled, /oauth2/** and /login/oauth2/** return 503.
+     */
+    @Data
+    public static class OAuth2 {
+        private boolean enabled = true;
     }
 }
