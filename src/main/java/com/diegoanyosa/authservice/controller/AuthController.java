@@ -1,91 +1,132 @@
 package com.diegoanyosa.authservice.controller;
 
-import com.diegoanyosa.authservice.dto.request.*;
-import com.diegoanyosa.authservice.dto.response.*;
+import com.diegoanyosa.authservice.api.AuthApiDelegate;
+import com.diegoanyosa.authservice.api.model.*;
 import com.diegoanyosa.authservice.service.AuthService;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.*;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
-@RestController
-@RequestMapping("/api/auth")
+/**
+ * Implements the generated {@link AuthApiDelegate}.
+ *
+ * The openapi-generator-maven-plugin reads auth-api.yaml and produces:
+ *   AuthApi           – the @RequestMapping interface (wired by Spring MVC)
+ *   AuthApiDelegate   – the delegate interface implemented here
+ *   model/            – all request/response DTOs
+ *
+ * No security annotations needed here: public vs protected access is
+ * enforced by SecurityConfig (URL-level) and the ApiKeyAuthFilter.
+ */
+@Component
 @RequiredArgsConstructor
-public class AuthController {
+public class AuthController implements AuthApiDelegate {
 
     private final AuthService authService;
 
-    // ── JWT Auth ─────────────────────────────────────────────
+    // ── JWT Auth ──────────────────────────────────────────────────────────
 
-    @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(
-            @Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok("Login successful", authService.login(request)));
+    @Override
+    public ResponseEntity<AuthApiResponse> login(LoginRequest request) {
+        AuthApiResponse body = new AuthApiResponse();
+        body.setSuccess(true);
+        body.setMessage("Login successful");
+        body.setTimestamp(OffsetDateTime.now());
+        body.setData(authService.login(request));
+        return ResponseEntity.ok(body);
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(
-            @Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .body(ApiResponse.ok("Registered", authService.register(request)));
+    @Override
+    public ResponseEntity<AuthApiResponse> register(RegisterRequest request) {
+        AuthApiResponse body = new AuthApiResponse();
+        body.setSuccess(true);
+        body.setMessage("Registered");
+        body.setTimestamp(OffsetDateTime.now());
+        body.setData(authService.register(request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
-    @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<AuthResponse>> refresh(
-            @Valid @RequestBody RefreshTokenRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok("Token refreshed", authService.refresh(request)));
+    @Override
+    public ResponseEntity<AuthApiResponse> refreshToken(RefreshTokenRequest request) {
+        AuthApiResponse body = new AuthApiResponse();
+        body.setSuccess(true);
+        body.setMessage("Token refreshed");
+        body.setTimestamp(OffsetDateTime.now());
+        body.setData(authService.refresh(request));
+        return ResponseEntity.ok(body);
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(
-            @RequestHeader("X-User-Id") String userId) {
-        authService.logout(userId);
-        return ResponseEntity.ok(ApiResponse.ok("Logged out", null));
+    @Override
+    public ResponseEntity<VoidResponse> logout(UUID xUserId) {
+        authService.logout(xUserId.toString());
+        VoidResponse body = new VoidResponse();
+        body.setSuccess(true);
+        body.setMessage("Logged out");
+        body.setTimestamp(OffsetDateTime.now());
+        return ResponseEntity.ok(body);
     }
 
-    @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserInfoResponse>> me(
-            @RequestHeader("X-User-Id")    String userId,
-            @RequestHeader("X-User-Email") String email,
-            @RequestHeader("X-User-Roles") String roles) {
-        return ResponseEntity.ok(ApiResponse.ok("User info",
-            UserInfoResponse.builder().userId(userId).email(email).roles(roles).build()));
+    @Override
+    public ResponseEntity<UserInfoApiResponse> me(UUID xUserId, String xUserEmail, String xUserRoles) {
+        UserInfoDto dto = new UserInfoDto();
+        dto.setUserId(UUID.fromString(xUserId.toString()));
+        dto.setEmail(xUserEmail);
+        dto.setRoles(xUserRoles);
+
+        UserInfoApiResponse body = new UserInfoApiResponse();
+        body.setSuccess(true);
+        body.setMessage("User info");
+        body.setTimestamp(OffsetDateTime.now());
+        body.setData(dto);
+        return ResponseEntity.ok(body);
     }
 
-    // ── OAuth2 callback info endpoint ─────────────────────────
-    // Frontend lands here after OAuth2 redirect with token params
+    // ── OAuth2 ────────────────────────────────────────────────────────────
 
-    @GetMapping("/oauth2/providers")
-    public ResponseEntity<ApiResponse<List<String>>> providers() {
-        return ResponseEntity.ok(ApiResponse.ok("Available providers",
-            List.of("google", "github")));
+    @Override
+    public ResponseEntity<ProvidersApiResponse> getOAuth2Providers() {
+        ProvidersApiResponse body = new ProvidersApiResponse();
+        body.setSuccess(true);
+        body.setMessage("Available providers");
+        body.setTimestamp(OffsetDateTime.now());
+        body.setData(List.of("google", "github"));
+        return ResponseEntity.ok(body);
     }
 
-    // ── API Key management ────────────────────────────────────
+    // ── API Keys ──────────────────────────────────────────────────────────
 
-    @PostMapping("/api-keys")
-    public ResponseEntity<ApiResponse<ApiKeyResponse>> createApiKey(
-            @RequestHeader("X-User-Id") String userId,
-            @RequestParam @NotBlank String name) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .body(ApiResponse.ok("API Key created — save this key, it won't be shown again",
-                authService.createApiKey(userId, name)));
+    @Override
+    public ResponseEntity<ApiKeyApiResponse> createApiKey(UUID xUserId, String name) {
+        ApiKeyApiResponse body = new ApiKeyApiResponse();
+        body.setSuccess(true);
+        body.setMessage("API Key created — save this key, it won't be shown again");
+        body.setTimestamp(OffsetDateTime.now());
+        body.setData(authService.createApiKey(xUserId.toString(), name));
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
-    @GetMapping("/api-keys")
-    public ResponseEntity<ApiResponse<List<ApiKeyResponse>>> listApiKeys(
-            @RequestHeader("X-User-Id") String userId) {
-        return ResponseEntity.ok(ApiResponse.ok("API Keys", authService.listApiKeys(userId)));
+    @Override
+    public ResponseEntity<ApiKeyListApiResponse> listApiKeys(UUID xUserId) {
+        ApiKeyListApiResponse body = new ApiKeyListApiResponse();
+        body.setSuccess(true);
+        body.setMessage("API Keys");
+        body.setTimestamp(OffsetDateTime.now());
+        body.setData(authService.listApiKeys(xUserId.toString()));
+        return ResponseEntity.ok(body);
     }
 
-    @DeleteMapping("/api-keys/{keyId}")
-    public ResponseEntity<ApiResponse<Void>> revokeApiKey(
-            @PathVariable String keyId,
-            @RequestHeader("X-User-Id") String userId) {
-        authService.revokeApiKey(keyId, userId);
-        return ResponseEntity.ok(ApiResponse.ok("API Key revoked", null));
+    @Override
+    public ResponseEntity<VoidResponse> revokeApiKey(UUID keyId, UUID xUserId) {
+        authService.revokeApiKey(keyId.toString(), xUserId.toString());
+        VoidResponse body = new VoidResponse();
+        body.setSuccess(true);
+        body.setMessage("API Key revoked");
+        body.setTimestamp(OffsetDateTime.now());
+        return ResponseEntity.ok(body);
     }
 }

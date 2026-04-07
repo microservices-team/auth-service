@@ -1,0 +1,532 @@
+openapi: "3.0.0"
+
+info:
+  title: Auth Service API
+  description: |
+    Authentication and authorisation service.
+
+    **Public endpoints** – `/api/auth/login`, `/api/auth/register`, `/api/auth/refresh`
+    require no token.
+
+    **Protected endpoints** – all others require a valid JWT forwarded by the API
+    Gateway via the `X-User-Id`, `X-User-Email`, and `X-User-Roles` headers,
+    or a valid API Key in the `X-API-Key` header.
+  version: "1.0.0"
+  contact:
+    name: Diego Anyosa
+    email: contact@diegoanyosa.com
+    url: https://diegoanyosa.com
+  license:
+    name: MIT License
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8099/api/v1
+    description: Local development
+  - url: https://api.diegoanyosa.com/api/v1
+    description: Production (via API Gateway)
+
+tags:
+  - name: Auth
+    description: Authentication, registration, token management, API Keys and OAuth2
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # ── JWT Auth ───────────────────────────────────────────────────────────────
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Login with email and password
+      description: Public. Returns access + refresh tokens on success. Locks the account after too many failed attempts.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthApiResponse'
+        "400":
+          description: Validation error (invalid email format, blank fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "423":
+          description: Account locked due to too many failed attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      summary: Register a new user account
+      description: Public. Creates the account with the USER role and returns tokens immediately.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthApiResponse'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshToken
+      summary: Refresh access token
+      description: Public. Rotates the refresh token – the old one is revoked and a new pair is returned.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthApiResponse'
+        "401":
+          description: Refresh token invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Logout – revoke all refresh tokens
+      description: Requires gateway headers. Revokes every active refresh token for the user.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoidResponse'
+        "401":
+          description: Missing or invalid gateway headers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      operationId: me
+      summary: Get current user info
+      description: Reads the user identity from API Gateway-injected headers.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserEmail'
+        - $ref: '#/components/parameters/XUserRoles'
+      responses:
+        "200":
+          description: User info returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfoApiResponse'
+        "401":
+          description: Missing gateway headers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── OAuth2 ─────────────────────────────────────────────────────────────────
+
+  /auth/oauth2/providers:
+    get:
+      tags: [Auth]
+      operationId: getOAuth2Providers
+      summary: List available OAuth2 providers
+      description: Public. Returns the list of enabled OAuth2 providers (google, github).
+      security: []
+      responses:
+        "200":
+          description: Providers list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvidersApiResponse'
+
+  # ── API Keys ───────────────────────────────────────────────────────────────
+
+  /auth/api-keys:
+    post:
+      tags: [Auth]
+      operationId: createApiKey
+      summary: Create a new API Key
+      description: |
+        Generates a new API key for the authenticated user.
+        The raw key is returned **only once** – store it securely.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - name: name
+          in: query
+          required: true
+          description: Friendly name for the key (e.g. "frontend-prod")
+          schema:
+            type: string
+            minLength: 1
+          example: frontend-prod
+      responses:
+        "201":
+          description: API Key created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyApiResponse'
+        "400":
+          description: Blank name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags: [Auth]
+      operationId: listApiKeys
+      summary: List active API Keys for the current user
+      description: Returns key metadata only – the raw key is never included in listings.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+      responses:
+        "200":
+          description: API Keys retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyListApiResponse'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/api-keys/{keyId}:
+    delete:
+      tags: [Auth]
+      operationId: revokeApiKey
+      summary: Revoke an API Key
+      description: Soft-deletes the key (sets active=false). The key is immediately invalidated.
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          description: API Key UUID
+          schema:
+            type: string
+            format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        - $ref: '#/components/parameters/XUserId'
+      responses:
+        "200":
+          description: API Key revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoidResponse'
+        "401":
+          description: Not authenticated or key belongs to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: API Key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+# ── Components ────────────────────────────────────────────────────────────────
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT issued by this service, forwarded by the API Gateway.
+
+  parameters:
+    XUserId:
+      name: X-User-Id
+      in: header
+      required: true
+      description: User UUID injected by the API Gateway
+      schema:
+        type: string
+        format: uuid
+      example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+
+    XUserEmail:
+      name: X-User-Email
+      in: header
+      required: true
+      description: User email injected by the API Gateway
+      schema:
+        type: string
+        format: email
+      example: diego@diegoanyosa.com
+
+    XUserRoles:
+      name: X-User-Roles
+      in: header
+      required: true
+      description: Comma-separated roles injected by the API Gateway (e.g. "USER,ADMIN")
+      schema:
+        type: string
+      example: USER
+
+  schemas:
+
+    # ── Envelope base ───────────────────────────────────────────────────────
+
+    ApiResponseBase:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+      example:
+        success: false
+        message: "Invalid credentials"
+        timestamp: "2025-01-01T00:00:00"
+
+    VoidResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+      example:
+        success: true
+        message: "Logged out"
+        timestamp: "2025-01-01T00:00:00"
+
+    # ── Requests ────────────────────────────────────────────────────────────
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: diego@diegoanyosa.com
+        password:
+          type: string
+          minLength: 1
+          example: "securePassword123"
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Diego Anyosa
+        email:
+          type: string
+          format: email
+          example: diego@diegoanyosa.com
+        password:
+          type: string
+          minLength: 8
+          example: "securePassword123"
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+    # ── Response DTOs ────────────────────────────────────────────────────────
+
+    AuthDto:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiJ9..."
+        refreshToken:
+          type: string
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          format: int64
+          description: Seconds until the access token expires
+          example: 3600
+        userId:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        email:
+          type: string
+          format: email
+          example: diego@diegoanyosa.com
+        name:
+          type: string
+          example: Diego Anyosa
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["USER"]
+
+    UserInfoDto:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        email:
+          type: string
+          format: email
+          example: diego@diegoanyosa.com
+        roles:
+          type: string
+          description: Comma-separated roles
+          example: "USER"
+
+    ApiKeyDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        name:
+          type: string
+          example: frontend-prod
+        prefix:
+          type: string
+          description: First 8 characters of the key shown for identification
+          example: "da-abc12"
+        rawKey:
+          type: string
+          description: Full key – only present immediately after creation, never on list
+          example: "da-abc12def34567890abcdef1234567890"
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Typed envelope responses ─────────────────────────────────────────────
+
+    AuthApiResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AuthDto'
+
+    UserInfoApiResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UserInfoDto'
+
+    ApiKeyApiResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ApiKeyDto'
+
+    ApiKeyListApiResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ApiKeyDto'
+
+    ProvidersApiResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                type: string
+              example: ["google", "github"]

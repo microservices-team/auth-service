@@ -43,7 +43,12 @@ public class SecurityConfig {
                     "/api/auth/login",
                     "/api/auth/register",
                     "/api/auth/refresh",
-                    "/actuator/health"
+                    "/api/auth/oauth2/providers",
+                    "/actuator/health",
+                    "/swagger-ui.html",
+                    "/swagger-ui/**",
+                    "/v3/api-docs",
+                    "/v3/api-docs/**"
                 ).permitAll()
                 // Only allow oauth2 paths when enabled
                 .requestMatchers("/login/oauth2/**", "/oauth2/**", "/api/auth/oauth2/**")
@@ -83,8 +88,7 @@ public class SecurityConfig {
                 String path = ((jakarta.servlet.http.HttpServletRequest) req).getRequestURI();
                 if (path.startsWith("/oauth2") || path.startsWith("/login/oauth2")) {
                     ((HttpServletResponse) res).setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-                    ((HttpServletResponse) res).setContentType("application/json");
-                    ((HttpServletResponse) res).getWriter()
+                    (res).getWriter()
                         .write("{\"success\":false,\"message\":\"OAuth2 is temporarily disabled\"}");
                     return;
                 }

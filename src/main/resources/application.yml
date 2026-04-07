@@ -44,9 +44,6 @@ eureka:
     lease-renewal-interval-in-seconds: 10
     lease-expiration-duration-in-seconds: 30
 
-server:
-  port: 8099
-
 management:
   endpoints:
     web:
@@ -85,3 +82,12 @@ logging:
     com.diegoanyosa.authservice: DEBUG
     com.netflix.discovery: WARN
     com.netflix.eureka: WARN
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    try-it-out-enabled: true

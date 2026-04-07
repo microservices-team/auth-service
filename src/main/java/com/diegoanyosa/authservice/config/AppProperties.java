@@ -2,10 +2,12 @@ package com.diegoanyosa.authservice.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.stereotype.Component;
 
 @Data
 @Component
+@EnableDiscoveryClient
 @ConfigurationProperties(prefix = "security")
 public class AppProperties {
 
