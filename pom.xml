@@ -5,17 +5,21 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.3</version>
+        <version>3.5.13</version>
         <relativePath/>
     </parent>
     <groupId>com.diegoanyosa</groupId>
     <artifactId>auth-service</artifactId>
     <version>1.0.0</version>
+
     <properties>
         <java.version>21</java.version>
-        <spring-cloud.version>2023.0.1</spring-cloud.version>
-        <jjwt.version>0.12.5</jjwt.version>
+        <spring-cloud.version>2025.0.1</spring-cloud.version>
+        <jjwt.version>0.12.7</jjwt.version>
+        <openapi-generator.version>7.4.0</openapi-generator.version>
+        <openapi.generated-sources>${project.build.directory}/generated-sources/openapi</openapi.generated-sources>
     </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -27,6 +31,7 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
     <dependencies>
         <!-- Core -->
         <dependency>
@@ -49,11 +54,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        <!-- OAuth2 Client — Google + GitHub -->
+
+        <!-- OAuth2 Client - Google + GitHub -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-client</artifactId>
         </dependency>
+
         <!-- Cloud -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -63,6 +70,7 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-config</artifactId>
         </dependency>
+
         <!-- DB -->
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -81,6 +89,7 @@
             <version>11.7.2</version>
             <scope>runtime</scope>
         </dependency>
+
         <!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -99,12 +108,31 @@
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
+
+        <!-- OpenAPI generator runtime deps (required by generated interfaces) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.8.16</version>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations</artifactId>
+            <version>2.2.21</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openapitools</groupId>
+            <artifactId>jackson-databind-nullable</artifactId>
+            <version>0.2.6</version>
+        </dependency>
+
         <!-- Utils -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -122,11 +150,67 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
     <build>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!--
+                OpenAPI Generator reads auth-api.yaml and produces:
+                  AuthApi.java           - @RequestMapping interface (all endpoints)
+                  AuthApiController.java - Spring MVC wiring class
+                  AuthApiDelegate.java   - interface YOU implement in AuthController
+                  model/*.java           - all DTOs defined in the YAML
+
+                Run:   mvn generate-sources
+                Output: target/generated-sources/openapi/
+
+                Tag = "Auth" -> class names AuthApi / AuthApiDelegate / AuthApiController
+            -->
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <version>${openapi-generator.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-auth-api</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>
+                                ${project.basedir}/src/main/resources/openapi/auth-api.yaml
+                            </inputSpec>
+                            <generatorName>spring</generatorName>
+                            <output>${openapi.generated-sources}</output>
+
+                            <apiPackage>com.diegoanyosa.authservice.api</apiPackage>
+                            <modelPackage>com.diegoanyosa.authservice.api.model</modelPackage>
+                            <invokerPackage>com.diegoanyosa.authservice.api</invokerPackage>
+
+                            <configOptions>
+                                <delegatePattern>true</delegatePattern>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <useJakartaEe>true</useJakartaEe>
+                                <useLombok>false</useLombok>
+                                <dateLibrary>java8</dateLibrary>
+                                <useBeanValidation>true</useBeanValidation>
+                                <performBeanValidation>true</performBeanValidation>
+                                <openApiNullable>true</openApiNullable>
+                                <generateBuilders>false</generateBuilders>
+                            </configOptions>
+
+                            <generateApiDocumentation>false</generateApiDocumentation>
+                            <generateModelDocumentation>false</generateModelDocumentation>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
+                            <supportingFilesToGenerate>ApiUtil.java,OpenApiGeneratorApplication.java</supportingFilesToGenerate>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
