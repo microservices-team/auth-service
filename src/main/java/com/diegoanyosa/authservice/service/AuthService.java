@@ -2,7 +2,6 @@ package com.diegoanyosa.authservice.service;
 
 import com.diegoanyosa.authservice.config.AppProperties;
 import com.diegoanyosa.authservice.exception.*;
-import com.diegoanyosa.authservice.api.model.*;
 import com.diegoanyosa.authservice.model.*;
 import com.diegoanyosa.authservice.repository.*;
 import com.diegoanyosa.authservice.security.JwtService;

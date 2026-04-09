@@ -1,10 +1,13 @@
+server:
+  port: 8181
+
 spring:
   application:
     name: auth-service
   config:
     # Lee del Config Server usando las variables de entorno de Docker Compose.
     # CONFIG_HOST=config-server, CONFIG_USER=configuser, CONFIG_PASS=configpass
-    import: optional:configserver:http://${CONFIG_USER:configuser}:${CONFIG_PASS:configpass}@${CONFIG_HOST:localhost}:8888
+    import: optional:configserver:http://${CONFIG_USER:configuser}:${CONFIG_PASS:configpass}@${CONFIG_HOST:localhost}:8889
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/diegoanyosa_db?currentSchema=auth}
@@ -82,6 +85,9 @@ logging:
     com.diegoanyosa.authservice: DEBUG
     com.netflix.discovery: WARN
     com.netflix.eureka: WARN
+    org.springframework.cloud.config: WARN
+    org.springframework.security: DEBUG
+    org.springframework.validation: DEBUG
 springdoc:
   api-docs:
     path: /v3/api-docs

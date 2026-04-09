@@ -1,7 +1,7 @@
 package com.diegoanyosa.authservice.controller;
 
-import com.diegoanyosa.authservice.api.AuthApiDelegate;
-import com.diegoanyosa.authservice.api.model.*;
+import com.diegoanyosa.authservice.AuthApiDelegate;
+import com.diegoanyosa.authservice.model.*;
 import com.diegoanyosa.authservice.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -101,7 +101,7 @@ public class AuthController implements AuthApiDelegate {
     // ── API Keys ──────────────────────────────────────────────────────────
 
     @Override
-    public ResponseEntity<ApiKeyApiResponse> createApiKey(UUID xUserId, String name) {
+    public ResponseEntity<ApiKeyApiResponse> createApiKey(String name, UUID xUserId) {
         ApiKeyApiResponse body = new ApiKeyApiResponse();
         body.setSuccess(true);
         body.setMessage("API Key created — save this key, it won't be shown again");

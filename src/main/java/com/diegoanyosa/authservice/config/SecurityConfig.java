@@ -4,7 +4,9 @@ import com.diegoanyosa.authservice.security.*;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.*;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -22,45 +24,70 @@ import javax.sql.DataSource;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final OAuth2SuccessHandler   oauth2SuccessHandler;
+    private final ApiKeyAuthFilter apiKeyAuthFilter;
+    private final JwtAuthFilter jwtAuthFilter;
+    private final OAuth2SuccessHandler oauth2SuccessHandler;
     private final UserDetailsServiceImpl userDetailsService;
-    private final AppProperties          appProperties;
-    private final DataSource             dataSource;
+    private final AppProperties appProperties;
+    private final DataSource dataSource;
+
+    // @Lazy on ApiKeyAuthFilter breaks the cycle:
+    // SecurityConfig → ApiKeyAuthFilter → PasswordEncoder → SecurityConfig
+    @Autowired
+    public SecurityConfig(
+            @Lazy ApiKeyAuthFilter apiKeyAuthFilter,
+            @Lazy JwtAuthFilter jwtAuthFilter,
+            OAuth2SuccessHandler oauth2SuccessHandler,
+            UserDetailsServiceImpl userDetailsService,
+            AppProperties appProperties,
+            DataSource dataSource) {
+        this.apiKeyAuthFilter = apiKeyAuthFilter;
+        this.jwtAuthFilter = jwtAuthFilter;
+        this.oauth2SuccessHandler = oauth2SuccessHandler;
+        this.userDetailsService = userDetailsService;
+        this.appProperties = appProperties;
+        this.dataSource = dataSource;
+    }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, ApiKeyAuthFilter apiKeyAuthFilter) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         boolean oauth2Enabled = appProperties.getOauth2().isEnabled();
         log.info("OAuth2 login: {}", oauth2Enabled ? "ENABLED" : "DISABLED");
 
         http
+            .securityMatcher("/**")
             .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Actuator
+                .requestMatchers("/actuator/health").permitAll()
+
+                // Swagger / OpenAPI
+                .requestMatchers(
+                    "/v3/api-docs/**",
+                    "/swagger-ui/**",
+                    "/swagger-ui.html"
+                ).permitAll()
                 .requestMatchers(
                     "/api/auth/login",
                     "/api/auth/register",
                     "/api/auth/refresh",
-                    "/api/auth/oauth2/providers",
-                    "/actuator/health",
-                    "/swagger-ui.html",
-                    "/swagger-ui/**",
-                    "/v3/api-docs",
-                    "/v3/api-docs/**"
+                    "/actuator/health"
                 ).permitAll()
                 // Only allow oauth2 paths when enabled
                 .requestMatchers("/login/oauth2/**", "/oauth2/**", "/api/auth/oauth2/**")
-                    .access((authentication, context) -> {
-                        if (!oauth2Enabled) {
-                            return new org.springframework.security.authorization.AuthorizationDecision(false);
-                        }
-                        return new org.springframework.security.authorization.AuthorizationDecision(true);
-                    })
+                .access((authentication, context) -> {
+                    if (!oauth2Enabled) {
+                        return new org.springframework.security.authorization.AuthorizationDecision(false);
+                    }
+                    return new org.springframework.security.authorization.AuthorizationDecision(true);
+                })
                 .anyRequest().authenticated()
             )
             .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .rememberMe(rm -> rm
                 .tokenRepository(persistentTokenRepository())
                 .userDetailsService(userDetailsService)

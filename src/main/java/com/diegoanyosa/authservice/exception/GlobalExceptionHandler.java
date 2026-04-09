@@ -1,6 +1,6 @@
 package com.diegoanyosa.authservice.exception;
 
-import com.diegoanyosa.authservice.api.model.ErrorResponse;
+import com.diegoanyosa.authservice.model.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
