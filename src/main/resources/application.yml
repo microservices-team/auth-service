@@ -1,93 +1,28 @@
 spring:
   application:
     name: auth-service
-  config:
-    # Lee del Config Server usando las variables de entorno de Docker Compose.
-    # CONFIG_HOST=config-server, CONFIG_USER=configuser, CONFIG_PASS=configpass
-    import: optional:configserver:http://${CONFIG_USER:configuser}:${CONFIG_PASS:configpass}@${CONFIG_HOST:localhost}:8888
-
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/diegoanyosa_db?currentSchema=auth}
-    username: ${DB_USER:dauser}
-    password: ${DB_PASS:change-me-strong-password}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 5
-      minimum-idle: 2
-      connection-timeout: 30000
-
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: false
-    properties:
-      hibernate:
-        default_schema: auth
-
-  flyway:
-    enabled: true
-    schemas: auth
-    locations: classpath:db/migration
-    baseline-on-migrate: true
 
 # Eureka — usa el nombre del servicio Docker, no localhost
-eureka:
-  client:
-    service-url:
-      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
-    # Reducir agresividad de reintentos al inicio
-    initial-instance-info-replication-interval-seconds: 20
-    registry-fetch-interval-seconds: 15
-  instance:
-    prefer-ip-address: true
-    # Heartbeat y lease más tolerantes durante el arranque
-    lease-renewal-interval-in-seconds: 10
-    lease-expiration-duration-in-seconds: 30
+#eureka:
+#  client:
+#    service-url:
+#      defaultZone: http://${EUREKA_HOST:eureka-server}:8761/eureka/
+#    # Reducir agresividad de reintentos al inicio
+#    initial-instance-info-replication-interval-seconds: 20
+#    registry-fetch-interval-seconds: 15
+#  instance:
+#    prefer-ip-address: true
+#    # Heartbeat y lease más tolerantes durante el arranque
+#    lease-renewal-interval-in-seconds: 10
+#    lease-expiration-duration-in-seconds: 30
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  endpoint:
-    health:
-      show-details: always
-
-# Security properties — valores por defecto para Docker local
-security:
-  account:
-    max-failed-attempts: 3
-    lockout-duration-minutes: 30
-  remember-me:
-    key: ${REMEMBER_ME_KEY:da-remember-me-key-change-in-prod}
-    token-validity-seconds: 604800
-  api-key:
-    header-name: X-API-Key
-  oauth2:
-    enabled: ${OAUTH2_ENABLED:false}
-
-app:
-  frontend-url: ${FRONTEND_URL:http://localhost:5173}
-  oauth2:
-    success-redirect: ${FRONTEND_URL:http://localhost:5173}/oauth2/callback
-    failure-redirect: ${FRONTEND_URL:http://localhost:5173}/login?error=oauth2
-
-jwt:
-  secret: ${JWT_SECRET:change-me-in-production-minimum-32-chars-long!}
-  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
-  refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
 logging:
   level:
     com.diegoanyosa.authservice: DEBUG
     com.netflix.discovery: WARN
     com.netflix.eureka: WARN
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-    operations-sorter: method
-    tags-sorter: alpha
-    display-request-duration: true
-    try-it-out-enabled: true
+    org.springframework.cloud.config: WARN
+    org.springframework.security: DEBUG
+    org.springframework.validation: DEBUG
+

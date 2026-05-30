@@ -8,9 +8,10 @@ info:
     **Public endpoints** – `/api/auth/login`, `/api/auth/register`, `/api/auth/refresh`
     require no token.
 
-    **Protected endpoints** – all others require a valid JWT forwarded by the API
-    Gateway via the `X-User-Id`, `X-User-Email`, and `X-User-Roles` headers,
-    or a valid API Key in the `X-API-Key` header.
+    **Protected endpoints** – all others require authentication via one of:
+    - `Authorization: Bearer <accessToken>` – direct calls / Postman / Swagger UI
+    - `X-User-Id` / `X-User-Email` / `X-User-Roles` headers – injected by the API Gateway in production
+    - `X-API-Key: <rawKey>` – API Key authentication
   version: "1.0.0"
   contact:
     name: Diego Anyosa
@@ -21,14 +22,16 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://localhost:8099/api/v1
+  - url: http://localhost:8099/api
     description: Local development
-  - url: https://api.diegoanyosa.com/api/v1
+  - url: https://api.diegoanyosa.com/api
     description: Production (via API Gateway)
 
 tags:
   - name: Auth
-    description: Authentication, registration, token management, API Keys and OAuth2
+    description: Authentication, registration, token management and OAuth2
+  - name: API Keys
+    description: API Key creation, listing, revocation and authentication
 
 security:
   - bearerAuth: []
@@ -203,7 +206,7 @@ paths:
 
   /auth/api-keys:
     post:
-      tags: [Auth]
+      tags: [API Keys]
       operationId: createApiKey
       summary: Create a new API Key
       description: |
@@ -240,7 +243,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
     get:
-      tags: [Auth]
+      tags: [API Keys]
       operationId: listApiKeys
       summary: List active API Keys for the current user
       description: Returns key metadata only – the raw key is never included in listings.
@@ -260,9 +263,54 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /auth/api-keys/{apiKey}:
+    get:
+      tags: [API Keys]
+      operationId: validateApiKey
+      summary: Validate an API Key by its raw value
+      description: |
+        Looks up the key by the raw key value in the path and returns its metadata
+        if it is active. The `{apiKey}` path parameter is the raw key string
+        (e.g. `da-abc12def...`) returned when the key was created.
+
+        The `ApiKeyAuthFilter` authenticates the request via the `X-API-Key` header —
+        use the same raw key value for both the header and the path.
+
+        **Note:** `rawKey` is never returned in the response (shown only once at creation).
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: apiKey
+          in: path
+          required: true
+          description: The raw API Key value returned at creation time
+          schema:
+            type: string
+            minLength: 1
+          example: da-abc12def34567890abcdef1234567890
+      responses:
+        "200":
+          description: API Key is valid – returns the key metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyApiResponse'
+        "401":
+          description: Missing, invalid, expired or revoked API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: API Key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /auth/api-keys/{keyId}:
     delete:
-      tags: [Auth]
+      tags: [API Keys]
       operationId: revokeApiKey
       summary: Revoke an API Key
       description: Soft-deletes the key (sets active=false). The key is immediately invalidated.
@@ -305,14 +353,27 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT issued by this service, forwarded by the API Gateway.
+      description: |
+        JWT issued by this service after login/register.
+        Use in Swagger UI: click **Authorize** and paste the `accessToken` from the login response.
+
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        Raw API Key returned by `POST /auth/api-keys` (shown only once).
+        Use in Swagger UI: click **Authorize** and paste the `rawKey` under **apiKeyAuth**.
 
   parameters:
     XUserId:
       name: X-User-Id
       in: header
-      required: true
-      description: User UUID injected by the API Gateway
+      required: false
+      description: |
+        User UUID. Injected automatically by the API Gateway in production.
+        When calling directly (Postman / Swagger UI), omit this header —
+        the userId is resolved from the Bearer token or API Key instead.
       schema:
         type: string
         format: uuid
@@ -321,8 +382,8 @@ components:
     XUserEmail:
       name: X-User-Email
       in: header
-      required: true
-      description: User email injected by the API Gateway
+      required: false
+      description: User email injected by the API Gateway. Optional on direct calls.
       schema:
         type: string
         format: email
@@ -331,8 +392,8 @@ components:
     XUserRoles:
       name: X-User-Roles
       in: header
-      required: true
-      description: Comma-separated roles injected by the API Gateway (e.g. "USER,ADMIN")
+      required: false
+      description: Comma-separated roles injected by the API Gateway. Optional on direct calls.
       schema:
         type: string
       example: USER

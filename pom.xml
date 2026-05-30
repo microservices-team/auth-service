@@ -187,9 +187,9 @@
                             <generatorName>spring</generatorName>
                             <output>${openapi.generated-sources}</output>
 
-                            <apiPackage>com.diegoanyosa.authservice.api</apiPackage>
-                            <modelPackage>com.diegoanyosa.authservice.api.model</modelPackage>
-                            <invokerPackage>com.diegoanyosa.authservice.api</invokerPackage>
+                            <apiPackage>com.diegoanyosa.authservice</apiPackage>
+                            <modelPackage>com.diegoanyosa.authservice.model</modelPackage>
+                            <invokerPackage>com.diegoanyosa.authservice</invokerPackage>
 
                             <configOptions>
                                 <delegatePattern>true</delegatePattern>
