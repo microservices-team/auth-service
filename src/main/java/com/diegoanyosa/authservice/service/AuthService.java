@@ -3,6 +3,7 @@ package com.diegoanyosa.authservice.service;
 import com.diegoanyosa.authservice.config.AppProperties;
 import com.diegoanyosa.authservice.exception.*;
 import com.diegoanyosa.authservice.model.*;
+import com.diegoanyosa.authservice.model.*;
 import com.diegoanyosa.authservice.repository.*;
 import com.diegoanyosa.authservice.security.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -171,6 +172,29 @@ public class AuthService {
                     return dto;
                 })
                 .toList();
+    }
+
+    public ApiKeyDto validateApiKey(String rawKey) {
+        if (rawKey == null || rawKey.isBlank()) {
+            throw new AuthException("API Key value is required");
+        }
+
+        // Use the prefix (first 8 chars) to narrow candidates, then BCrypt-verify
+        String prefix = rawKey.length() >= 8 ? rawKey.substring(0, 8) : rawKey;
+
+        ApiKey key = apiKeyRepository.findByKeyPrefixAndActiveTrue(prefix).stream()
+                .filter(k -> passwordEncoder.matches(rawKey, k.getKeyHash()))
+                .findFirst()
+                .orElseThrow(() -> new AuthException("API Key not found or inactive"));
+
+        ApiKeyDto dto = new ApiKeyDto();
+        dto.setId(key.getId());
+        dto.setName(key.getName());
+        dto.setPrefix(key.getKeyPrefix());
+        // rawKey is intentionally NOT set — never stored, only returned at creation
+        dto.setCreatedAt(key.getCreatedAt() != null
+                ? key.getCreatedAt().atOffset(java.time.ZoneOffset.UTC) : OffsetDateTime.now());
+        return dto;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

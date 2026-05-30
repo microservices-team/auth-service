@@ -263,38 +263,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/api-keys/{keyId}:
-    parameters:
-      - name: keyId
-        in: path
-        required: true
-        description: API Key UUID
-        schema:
-          type: string
-          format: uuid
-        example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-
+  /auth/api-keys/{apiKey}:
     get:
       tags: [API Keys]
       operationId: validateApiKey
-      summary: Validate an API Key
+      summary: Validate an API Key by its raw value
       description: |
-        Authenticates using the `X-API-Key` header instead of a Bearer token.
+        Looks up the key by the raw key value in the path and returns its metadata
+        if it is active. The `{apiKey}` path parameter is the raw key string
+        (e.g. `da-abc12def...`) returned when the key was created.
 
-        Send the `rawKey` returned when the key was created. The `ApiKeyAuthFilter`
-        intercepts the header, validates it against the stored BCrypt hash, and sets
-        the security context with `ROLE_API`.
+        The `ApiKeyAuthFilter` authenticates the request via the `X-API-Key` header —
+        use the same raw key value for both the header and the path.
 
-        This endpoint is useful to:
-        - Verify that a specific key is still active and correctly formed.
-        - Test API Key authentication from Swagger UI (click **Authorize** → enter the raw key under **apiKeyAuth**).
-
-        **Note:** The raw key is shown **only once** at creation time. If lost, revoke
-        the key and create a new one.
+        **Note:** `rawKey` is never returned in the response (shown only once at creation).
       security:
         - apiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/XUserId'
+        - name: apiKey
+          in: path
+          required: true
+          description: The raw API Key value returned at creation time
+          schema:
+            type: string
+            minLength: 1
+          example: da-abc12def34567890abcdef1234567890
       responses:
         "200":
           description: API Key is valid – returns the key metadata
@@ -315,12 +308,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /auth/api-keys/{keyId}:
     delete:
       tags: [API Keys]
       operationId: revokeApiKey
       summary: Revoke an API Key
       description: Soft-deletes the key (sets active=false). The key is immediately invalidated.
       parameters:
+        - name: keyId
+          in: path
+          required: true
+          description: API Key UUID
+          schema:
+            type: string
+            format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
         - $ref: '#/components/parameters/XUserId'
       responses:
         "200":
