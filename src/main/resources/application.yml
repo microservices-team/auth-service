@@ -1,6 +1,10 @@
 spring:
   application:
     name: auth-service
+  config:
+    # Lee del Config Server usando las variables de entorno de Docker Compose.
+    # CONFIG_HOST=config-server, CONFIG_USER=configuser, CONFIG_PASS=configpass
+    import: optional:configserver:http://${CONFIG_USER:configuser}:${CONFIG_PASS:configpass}@${CONFIG_HOST:eureka-server}:8888
 
 # Eureka — usa el nombre del servicio Docker, no localhost
 #eureka:
